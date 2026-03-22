@@ -2,7 +2,7 @@ package com.github.noamm9.nvgrenderer.mixin;
 
 
 import com.github.noamm9.nvgrenderer.batchers.NVGBatcher;
-import com.github.noamm9.nvgrenderer.batchers.MultiPassBatcher;
+import com.github.noamm9.nvgrenderer.batchers.multipass.MultiPassBatcher;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;

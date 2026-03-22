@@ -1,22 +1,18 @@
 package com.github.noamm9.nvgrenderer
 
-import com.github.noamm9.nvgrenderer.batchers.MultiPassBatcher
-import com.github.noamm9.nvgrenderer.nvg.NVG
 import com.github.noamm9.nvgrenderer.nvg.PIPNVG
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.rendering.v1.SpecialGuiElementRegistry
-import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
-import java.awt.Color
 
 class Nvgrenderer: ClientModInitializer {
     override fun onInitializeClient() {
         SpecialGuiElementRegistry.register { PIPNVG(it.vertexConsumers()) }
 
+        /*
         MultiPassBatcher.addCallback { ctx ->
             ctx.push()
             ctx.translate(100, 100)
-            ctx.scale(1.25f, 1.25f)
+            ctx.scale(1.25)
 
             ctx.nvg {
                 NVG.rect(0, 0, 120, 40, Color(0, 0, 0, 140), 6f)
@@ -29,5 +25,23 @@ class Nvgrenderer: ClientModInitializer {
 
             ctx.pop()
         }
+
+        MouseBatcher.addCallbackClick { event ->
+            if (event.button != 0) return@addCallbackClick false
+            val stack = MouseStack()
+            stack.push()
+            stack.translate(100, 100)
+            stack.scale(1.25)
+
+            if (stack.x.toInt() in 0 .. 120 && stack.y.toInt() in 0 .. 40) {
+                Minecraft.getInstance().gui.chat.addMessage(Component.literal("Clicked the nvg box"))
+                return@addCallbackClick true
+            }
+
+            stack.pop()
+            false
+        }
+
+         */
     }
 }
