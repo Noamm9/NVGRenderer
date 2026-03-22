@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "nvgrenderer",
+  "version": "${version}",
+  "name": "NvgRenderer",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "unlicense",
+  "icon": "assets/nvgrenderer/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      {
+        "value": "com.github.noamm9.nvgrenderer.Nvgrenderer",
+        "adapter": "kotlin"
+      }
+    ]
+  },
+  "mixins": [
+    "nvgrenderer.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
