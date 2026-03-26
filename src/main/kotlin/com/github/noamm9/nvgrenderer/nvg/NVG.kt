@@ -14,7 +14,6 @@ import org.lwjgl.stb.STBImage.stbi_load_from_memory
 import org.lwjgl.system.MemoryUtil.memAlloc
 import org.lwjgl.system.MemoryUtil.memFree
 import java.awt.Color
-import java.awt.Image
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import kotlin.math.max
@@ -33,7 +32,7 @@ object NVG {
     private val fontMap = HashMap<Font, NVGFont>()
     private val fontBounds = FloatArray(4)
 
-    private val images = HashMap<java.awt.Image, NVGImage>()
+    private val images = HashMap<Image, NVGImage>()
 
     private var scissor: Scissor? = null
     private val vg by lazy {
@@ -325,7 +324,7 @@ object NVG {
         nvgFill(vg)
     }
 
-    fun image(image: java.awt.Image, x: Number, y: Number, w: Number, h: Number, radius: Number) {
+    fun image(image: Image, x: Number, y: Number, w: Number, h: Number, radius: Number) {
         nvgImagePattern(vg, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat(), 0f, getImage(image), 1f, nvgPaint)
         nvgBeginPath(vg)
         nvgRoundedRect(vg, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat() + .5f, radius.toFloat())
@@ -333,7 +332,7 @@ object NVG {
         nvgFill(vg)
     }
 
-    fun image(image: java.awt.Image, x: Number, y: Number, w: Number, h: Number) {
+    fun image(image: Image, x: Number, y: Number, w: Number, h: Number) {
         nvgImagePattern(vg, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat(), 0f, getImage(image), 1f, nvgPaint)
         nvgBeginPath(vg)
         nvgRect(vg, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat() + .5f)
@@ -341,14 +340,14 @@ object NVG {
         nvgFill(vg)
     }
 
-    fun createImage(resourcePath: String): java.awt.Image {
-        val image = images.keys.find { it.location == resourcePath } ?: java.awt.Image(resourcePath)
+    fun createImage(resourcePath: String): Image {
+        val image = images.keys.find { it.location == resourcePath } ?: Image(resourcePath)
         if (image.isSVG) images.getOrPut(image) { NVGImage(0, loadSVG(image)) }.count ++
         else images.getOrPut(image) { NVGImage(0, loadImage(image)) }.count ++
         return image
     }
 
-    fun deleteImage(image: java.awt.Image) {
+    fun deleteImage(image: Image) {
         val nvgImage = images[image] ?: return
         nvgImage.count --
         if (nvgImage.count == 0) {
@@ -357,11 +356,11 @@ object NVG {
         }
     }
 
-    private fun getImage(image: java.awt.Image): Int {
+    private fun getImage(image: Image): Int {
         return images[image]?.nvg ?: throw IllegalStateException("Image (${image.location}) doesn't exist")
     }
 
-    private fun loadImage(image: java.awt.Image): Int {
+    private fun loadImage(image: Image): Int {
         val w = IntArray(1)
         val h = IntArray(1)
         val channels = IntArray(1)
