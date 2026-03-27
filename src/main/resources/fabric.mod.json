@@ -3,8 +3,10 @@
   "id": "nvgrenderer",
   "version": "${version}",
   "name": "NvgRenderer",
-  "description": "",
-  "authors": [],
+  "description": "Minecraft Fabric ${version} NanoVG rendering library",
+  "authors": [
+    "Noamm"
+  ],
   "contact": {},
   "license": "unlicense",
   "icon": "assets/nvgrenderer/icon.png",
@@ -17,9 +19,7 @@
       }
     ]
   },
-  "mixins": [
-    "nvgrenderer.mixins.json"
-  ],
+  "mixins": [],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-language-kotlin": ">=${kotlin_loader_version}",

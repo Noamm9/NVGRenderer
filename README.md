@@ -1,126 +1,162 @@
 # NvgRenderer
 
-NanoVG wrapper for Fabric 1.21.10.
+NanoVG helpers for Fabric `1.21.11`.
 
-## Features
-
-1. Render callback that runs after the vanilla GUI finishes
-2. A few basic components (`NvgText`, `NvgTooltip`, `NvgTextInputHandler`)
-3. Image loading from classpath, file paths, or URLs (PNG/SVG)
-4. Keyboard and mouse events
+The library is aimed at client-side HUD, menu, and overlay rendering. It wraps the NanoVG frame setup used by
+Minecraft's picture-in-picture GUI path and adds a small set of drawing, text, image, and coordinate helpers.
 
 ## Requirements
 
-1. Minecraft `1.21.10`
-2. Fabric Loader `>= 0.18.4`
-3. Fabric Kotlin `>= 1.13.9+kotlin.2.3.10`
-4. Java 21
+- Minecraft `1.21.11`
+- Fabric Loader `0.18.4+`
+- Fabric API `0.140.2+1.21.11`
+- Fabric Language Kotlin `1.13.9+kotlin.2.3.10`
+- Java `21`
 
-## Install With JitPack
+## Main API
 
-1. Add JitPack to your Gradle repositories.
-2. Add the dependency and sync.
-
-### Gradle Kotlin DSL (`build.gradle.kts`)
+[`NVG`](src/main/kotlin/com/github/noamm9/nvgrenderer/nvg/NVG.kt) is the drawing entry point.
 
 ```kotlin
-repositories {
-    maven("https://jitpack.io")
-}
-
-dependencies {
-    modImplementation("com.github.noamm9:NvgRenderer:1.0")
+NVG.rect(20, 20, 120, 40, Color(20, 20, 20, 180), 8f)
+NVG.hollowRect(20, 20, 120, 40, 1f, Color.WHITE, 8f)
+NVG.line(20, 70, 180, 70, 2f, Color(255, 255, 255, 180))
+NVG.circle(200, 70, 10f, Color(80, 200, 255))
+NVG.gradientRect(
+    20, 90, 160, 42,
+    Color(73, 140, 255),
+    Color(88, 235, 180),
+    Gradient.LEFT_RIGHT,
+    10f
+)
+NVG.dropShadow(20, 150, 180, 60, 20f, 6f, 12f)
 ```
 
-### Gradle Groovy (`build.gradle`)
-
-```groovy
-repositories {
-    maven { url "https://jitpack.io" }
-}
-
-dependencies {
-    modImplementation "com.github.noamm9:NvgRenderer:1.0"
-}
-```
-
-## Basic Usage
-
-Register a render callback, then call `NVG` draw functions inside it. The library already handles `beginFrame` and
-`endFrame` for you.
+Transforms and clipping:
 
 ```kotlin
-import com.github.noamm9.nvgrenderer.batchers.NVGBatcher
-import com.github.noamm9.nvgrenderer.nvg.NVG
-import com.github.noamm9.nvgrenderer.nvg.ui.NvgText
-import net.fabricmc.api.ClientModInitializer
-import java.awt.Color
+NVG.push()
+NVG.translate(40, 30)
+NVG.scale(1.25f, 1.25f)
 
-class ExampleClient: ClientModInitializer {
-    override fun onInitializeClient() {
-        NVGBatcher.addCallback {
-            NVG.rect(20, 20, 140, 40, Color(0, 0, 0, 140), 6f)
-            NvgText.draw("Hello NanoVG", 28f, 30f, color = Color.WHITE, size = 16f)
-            NVG.line(20, 70, 200, 70, 2f, Color(255, 255, 255, 180))
-        }
-    }
-}
+NVG.pushScissor(0, 0, 120, 60)
+NVG.rect(0, 0, 120, 60, Color(0, 0, 0, 120), 8f)
+NVG.popScissor()
+
+NVG.pop()
 ```
 
-## Input Batching
+## Text
 
-The mixins forward mouse and keyboard events into the batchers. Return `true` to consume the event.
+[`NvgText`](src/main/kotlin/com/github/noamm9/nvgrenderer/helpers/NvgText.kt) wraps common text drawing and strips
+Minecraft formatting codes before measuring or rendering.
 
 ```kotlin
-import com.github.noamm9.nvgrenderer.batchers.KeyboardBatcher
-import com.github.noamm9.nvgrenderer.batchers.MouseBatcher
-
-KeyboardBatcher.addCallbackKey { event ->
-    if (event.state == KeyboardBatcher.KeyState.PRESS && event.button == 79) {
-        // example: O key
-        return@addCallbackKey true
-    }
-    false
-}
-
-MouseBatcher.addCallbackClick { event ->
-    // return true to cancel the click
-    false
-}
+NvgText.draw("Hello", 24f, 24f, Color.WHITE, 16f)
+NvgText.draw("Centered", 120f, 50f, Color.WHITE, 14f, align = NvgText.Align.CENTER)
+NvgText.draw("Shadow", 24f, 72f, Color.WHITE, 14f, shadow = true)
+NvgText.drawGradient(
+    "Gradient",
+    24f,
+    96f,
+    Color.WHITE,
+    Color(255, 220, 120),
+    18f
+)
 ```
 
 ## Images
 
-You can load images from a classpath resource, a file path, or a URL. SVGs are supported.
+[`Image`](src/main/kotlin/com/github/noamm9/nvgrenderer/nvg/Image.kt) and `NVG.createImage(...)` support:
+
+- classpath resources
+- absolute or relative file paths
+- `http://` and `https://` URLs
+- SVG input
 
 ```kotlin
-import com.github.noamm9.nvgrenderer.nvg.NVG
+val icon = NVG.createImage("assets/nvgrenderer/icon.png")
+val svg = NVG.createImage("https://example.com/logo.svg")
 
-val img1 = NVG.createImage("/assets/yourmodid/images/image.png")
-val img2 = NVG.createImage("https://bigrat.monster/")
-NVG.image(img1, 10f, 90f, 32f, 32f, 6f)
+NVG.image(icon, 20f, 20f, 32f, 32f, 8f)
+NVG.image(svg, 60f, 20f, 32f, 32f)
 
-// when done with the image
-NVG.deleteImage(img1)
+NVG.deleteImage(icon)
+NVG.deleteImage(svg)
 ```
 
-## Manual PIP Rendering
+Notes:
 
-If you want to draw in a specific place/area, you can use `PIPNVG.draw`.
+- `createImage(...)` is reference-counted. If you keep the returned handle, call `deleteImage(...)` when you are done.
+- `image(path, ...)` is fine for stable assets, but it caches by path. Don't feed it a stream of unique URLs every
+  frame.
+- Loading images from disk or the network inside a render loop is a bad idea. Preload them.
+
+You can also wrap an existing GL texture with `createNVGImage(...)`.
+
+## GuiGraphics Integration
+
+[`NVGPIP`](src/main/kotlin/com/github/noamm9/nvgrenderer/nvg/NVGPIP.kt) exposes a `GuiGraphics.drawNVG { ... }`
+extension.
+It respects the current `GuiGraphics` transform and scissor state, and it draws in normal Minecraft GUI coordinates.
 
 ```kotlin
-import com.github.noamm9.nvgrenderer.nvg.PIPNVG
+override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+    super.render(guiGraphics, mouseX, mouseY, partialTick)
 
-PIPNVG.draw(context, x, y, width, height) {
-    // NVG drawing calls here
+    guiGraphics.drawNVG {
+        NVG.rect(0, 0, 220, 120, Color(15, 18, 24, 210), 14f)
+        NvgText.draw("NVG inside GuiGraphics", 16f, 18f, Color.WHITE, 16f)
+    }
+}
+```
+
+## Demo Screen
+
+Press `F8` in-game to open the built-in demo screen. It exercises:
+
+- primitive shapes
+- gradients
+- text helpers
+- scissor clipping
+- translated and scaled hover math
+- PNG and SVG image loading
+- world-to-screen projection against your current crosshair target
+
+## Mouse Coordinates
+
+[`MouseStack`](src/main/kotlin/com/github/noamm9/nvgrenderer/helpers/MouseStack.kt) mirrors simple 2D GUI transforms so
+hover checks can use local coordinates.
+
+```kotlin
+val mouse = MouseStack()
+
+mouse.push()
+mouse.translate(panelX, panelY)
+mouse.scale(1.5f)
+
+val local = mouse.toLocal(screenMouseX, screenMouseY)
+val hovered = local.first in 0.0 .. 120.0 && local.second in 0.0 .. 40.0
+
+mouse.pop()
+```
+
+## World To Screen
+
+[`WorldToScreen`](src/main/kotlin/com/github/noamm9/nvgrenderer/helpers/WorldToScreen.kt) projects a world position into
+GUI-space coordinates.
+
+```kotlin
+val point = WorldToScreen.project(entity.position())
+if (point != null && point.onScreen) {
+    NVG.circle(point.x, point.y, 4f, Color.RED)
 }
 ```
 
 ## License
 
-Unlicense. Third-party BSD-3-Clause notices are included. See `LICENSE.txt`.
+Unlicense. See [`LICENSE.txt`](LICENSE.txt).
 
 ## Credits
 
-odtheking - [Odin (Fabric)](https://github.com/odtheking/Odin): Portions of the NanoVG rendering/input logic are derived
-from this project (BSD-3-Clause).
+Parts of the rendering approach were inspired by [Odin (Fabric)](https://github.com/odtheking/Odin).

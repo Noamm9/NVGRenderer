@@ -1,13 +1,15 @@
-package com.github.noamm9.nvgrenderer.nvg.ui
+package com.github.noamm9.nvgrenderer.helpers
 
 import com.github.noamm9.nvgrenderer.nvg.Font
 import com.github.noamm9.nvgrenderer.nvg.NVG
 import java.awt.Color
 
+/**
+ * Text helpers built on top of [NVG].
+ */
 object NvgText {
     var font: Font = NVG.font
     var size: Float = 9f
-    var lineHeight: Float = 8.2f
 
     enum class Align { LEFT, CENTER, RIGHT }
 
@@ -53,6 +55,7 @@ object NvgText {
             Align.CENTER -> x - w / 2f
             Align.RIGHT -> x - w
         }
+
         NVG.textGradient(clean, drawX, y, size, w, color1, color2, font)
     }
 
@@ -73,36 +76,42 @@ object NvgText {
             if (width(candidate, size, font) <= maxWidth || line.isEmpty()) {
                 if (line.isNotEmpty()) line.append(' ')
                 line.append(word)
-            }
-            else {
+            } else {
                 flush()
                 line.append(word)
             }
         }
+
         flush()
         return lines
     }
 
+    /**
+     * Removes Minecraft formatting codes from a string before measuring or rendering it.
+     */
     fun stripFormatting(text: String): String {
         if (text.isEmpty()) return text
-        val sb = StringBuilder(text.length)
-        var skip = false
-        for (i in text.indices) {
-            val c = text[i]
-            if (skip) {
-                skip = false
+
+        val builder = StringBuilder(text.length)
+        var index = 0
+
+        while (index < text.length) {
+            val current = text[index]
+
+            if (current == '\u00A7') {
+                index = (index + 2).coerceAtMost(text.length)
                 continue
             }
-            if (c == '\u00A7') {
-                skip = true
+
+            if (current == '\uFFFD' && index + 2 < text.length && text[index + 1] == '\u00A7') {
+                index += 3
                 continue
             }
-            if (c == '�' && i + 1 < text.length && text[i + 1] == '\u00A7') {
-                skip = true
-                continue
-            }
-            sb.append(c)
+
+            builder.append(current)
+            index++
         }
-        return sb.toString()
+
+        return builder.toString()
     }
 }

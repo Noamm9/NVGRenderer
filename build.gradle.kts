@@ -7,15 +7,18 @@ plugins {
     id("maven-publish")
 }
 
-group = (findProperty("group") as String?) ?: (findProperty("maven_group") as String)
-version = (findProperty("version") as String?)?.takeIf { it != "unspecified" }
-    ?: (findProperty("mod_version") as String)
+val targetJavaVersion = 21
+group = project.property("maven_group") !!
+version = project.property("mod_version") !!
 
 base {
     archivesName.set(project.property("archives_base_name") as String)
 }
 
-val targetJavaVersion = 21
+repositories {
+    maven("https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1")
+}
+
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     withSourcesJar()
@@ -28,6 +31,7 @@ dependencies {
     modImplementation("net.fabricmc:fabric-language-kotlin:${project.property("kotlin_loader_version") !!}")
 
     modImplementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version") !!}")
+    modRuntimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")
 
     val lwjglVersion = "3.3.3"
 
@@ -38,6 +42,8 @@ dependencies {
         modImplementation("org.lwjgl:lwjgl-nanovg:$lwjglVersion:natives-$os")
         include("org.lwjgl:lwjgl-nanovg:$lwjglVersion:natives-$os")
     }
+
+    testImplementation(kotlin("test"))
 }
 
 tasks.processResources {
@@ -60,9 +66,13 @@ tasks.withType<KotlinCompile>().configureEach {
     compilerOptions.jvmTarget.set(JvmTarget.fromTarget(targetJavaVersion.toString()))
 }
 
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+}
+
 tasks.jar {
-    from("LICENSE") {
-        rename { "${it}_${project.base.archivesName.get()}" }
+    from("LICENSE.txt") {
+        rename { "LICENSE_${project.base.archivesName.get()}.txt" }
     }
 }
 

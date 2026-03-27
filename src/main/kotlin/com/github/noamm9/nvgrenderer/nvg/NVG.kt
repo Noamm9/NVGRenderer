@@ -2,14 +2,18 @@
 
 package com.github.noamm9.nvgrenderer.nvg
 
+import com.github.noamm9.nvgrenderer.nvg.NVG.createImage
+import com.github.noamm9.nvgrenderer.nvg.NVG.deleteImage
+import com.github.noamm9.nvgrenderer.nvg.enums.Gradient
 import net.minecraft.client.Minecraft
-import net.minecraft.resources.Identifier
+import org.joml.Matrix3x2fc
 import org.lwjgl.nanovg.NVGColor
 import org.lwjgl.nanovg.NVGPaint
 import org.lwjgl.nanovg.NanoSVG.*
 import org.lwjgl.nanovg.NanoVG.*
 import org.lwjgl.nanovg.NanoVGGL3.*
 import org.lwjgl.opengl.GL33C
+import org.lwjgl.stb.STBImage.stbi_image_free
 import org.lwjgl.stb.STBImage.stbi_load_from_memory
 import org.lwjgl.system.MemoryUtil.memAlloc
 import org.lwjgl.system.MemoryUtil.memFree
@@ -23,19 +27,16 @@ import kotlin.math.round
 object NVG {
     private val nvgPaint = NVGPaint.malloc()
     private val nvgColor = NVGColor.malloc()
-    private val nvgColor2: NVGColor = NVGColor.malloc()
-
-    val font by lazy {
-        Font("Default", Minecraft.getInstance().resourceManager.getResource(Identifier.parse("nvgrenderer:inter.ttf")).get().open())
-    }
-
-    private val fontMap = HashMap<Font, NVGFont>()
-    private val fontBounds = FloatArray(4)
+    private val nvgColor2 = NVGColor.malloc()
 
     private val images = HashMap<Image, NVGImage>()
-
+    private val fontMap = HashMap<Font, NVGFont>()
+    private val fontBounds = FloatArray(4)
     private var scissor: Scissor? = null
-    private val vg by lazy {
+    private val scissorStack = ArrayDeque<Scissor?>()
+
+    val font = Font("assets/nvgrenderer/inter.ttf")
+    val vg by lazy {
         nvgCreate(NVG_ANTIALIAS or NVG_STENCIL_STROKES).takeUnless { it == - 1L }
             ?: throw RuntimeException("Failed to create nvg")
     }
@@ -43,9 +44,7 @@ object NVG {
     fun devicePixelRatio(): Float {
         return try {
             val window = Minecraft.getInstance().window
-            val fbw = window.width
-            val ww = window.screenWidth
-            if (ww == 0) 1f else fbw.toFloat() / ww.toFloat()
+            window.width.toFloat() / window.screenWidth.toFloat()
         }
         catch (_: Throwable) {
             1f
@@ -57,21 +56,35 @@ object NVG {
     }
 
     fun beginFrame(width: Float, height: Float, dpr: Float) {
+        scissor = null
+        scissorStack.clear()
         nvgBeginFrame(vg, width / dpr, height / dpr, dpr)
         nvgTextAlign(vg, NVG_ALIGN_LEFT or NVG_ALIGN_TOP)
     }
 
     fun endFrame() = nvgEndFrame(vg)
 
-    fun push() = nvgSave(vg)
+    fun push() {
+        scissorStack.addLast(scissor)
+        nvgSave(vg)
+    }
 
-    fun pop() = nvgRestore(vg)
+    fun pop() {
+        nvgRestore(vg)
+        scissor = if (scissorStack.isNotEmpty()) scissorStack.removeLast() else null
+    }
 
     fun scale(x: Number, y: Number) = nvgScale(vg, x.toFloat(), y.toFloat())
+
+    fun scale(n: Number) = nvgScale(vg, n.toFloat(), n.toFloat())
 
     fun translate(x: Number, y: Number) = nvgTranslate(vg, x.toFloat(), y.toFloat())
 
     fun rotate(amount: Number) = nvgRotate(vg, amount.toFloat())
+
+    fun transform(matrix: Matrix3x2fc) {
+        nvgTransform(vg, matrix.m00(), matrix.m01(), matrix.m10(), matrix.m11(), matrix.m20(), matrix.m21())
+    }
 
     fun globalAlpha(amount: Number) = nvgGlobalAlpha(vg, amount.toFloat().coerceIn(0f, 1f))
 
@@ -157,14 +170,9 @@ object NVG {
     }
 
     fun gradientRect(
-        x: Number,
-        y: Number,
-        w: Number,
-        h: Number,
-        color1: Color,
-        color2: Color,
-        gradient: Gradient,
-        radius: Float
+        x: Number, y: Number, w: Number, h: Number,
+        color1: Color, color2: Color,
+        gradient: Gradient, radius: Float
     ) {
         nvgBeginPath(vg)
         nvgRoundedRect(vg, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat(), radius)
@@ -197,7 +205,9 @@ object NVG {
             nvgColor2,
             nvgPaint
         )
+
         nvgBeginPath(vg)
+
         nvgRoundedRect(
             vg,
             fx - fs - fb,
@@ -206,6 +216,7 @@ object NVG {
             fh + 2 * fs + 2 * fb,
             fr + fs
         )
+
         nvgRoundedRect(vg, fx, fy, fw, fh, fr)
         nvgPathWinding(vg, NVG_HOLE)
         nvgFillPaint(vg, nvgPaint)
@@ -237,13 +248,33 @@ object NVG {
         color1: Color,
         color2: Color,
         font: Font,
-        direction: Gradient = Gradient.LeftToRight
+        direction: Gradient = Gradient.LEFT_RIGHT
     ) {
         nvgFontSize(vg, size.toFloat())
         nvgFontFaceId(vg, getFontID(font))
-        gradient(color1, color2, x.toFloat(), y.toFloat(), width.toFloat(), size.toFloat(), direction)
-        nvgFillPaint(vg, nvgPaint)
-        nvgText(vg, x.toFloat(), y.toFloat() + .5f, text)
+
+        if (text.isEmpty()) return
+
+        if (direction == Gradient.TOP_BOTTOM) {
+            gradient(color1, color2, x.toFloat(), y.toFloat(), width.toFloat(), size.toFloat(), direction)
+            nvgFillPaint(vg, nvgPaint)
+            nvgText(vg, x.toFloat(), y.toFloat() + .5f, text)
+            return
+        }
+
+        val totalWidth = width.toFloat().coerceAtLeast(1f)
+        var cursorX = x.toFloat()
+
+        for (index in text.indices) {
+            val ch = text[index].toString()
+            val charWidth = nvgTextBounds(vg, 0f, 0f, ch, fontBounds).coerceAtLeast(0f)
+            val center = ((cursorX - x.toFloat()) + charWidth * 0.5f) / totalWidth
+            val t = center.coerceIn(0f, 1f)
+            color(lerp(color1, color2, t))
+            nvgFillColor(vg, nvgColor)
+            nvgText(vg, cursorX, y.toFloat() + .5f, ch)
+            cursorX += charWidth
+        }
     }
 
     fun textShadow(text: String, x: Number, y: Number, size: Number, color: Color, font: Font) {
@@ -332,6 +363,11 @@ object NVG {
         nvgFill(vg)
     }
 
+    fun image(path: String, x: Number, y: Number, w: Number, h: Number, radius: Number) {
+        val existing = images.keys.find { it.location == path }
+        image(existing ?: createImage(path), x, y, w, h, radius)
+    }
+
     fun image(image: Image, x: Number, y: Number, w: Number, h: Number) {
         nvgImagePattern(vg, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat(), 0f, getImage(image), 1f, nvgPaint)
         nvgBeginPath(vg)
@@ -340,6 +376,9 @@ object NVG {
         nvgFill(vg)
     }
 
+    /**
+     * Loads an image from the classpath, file system, or a URL and keeps it cached until [deleteImage].
+     */
     fun createImage(resourcePath: String): Image {
         val image = images.keys.find { it.location == resourcePath } ?: Image(resourcePath)
         if (image.isSVG) images.getOrPut(image) { NVGImage(0, loadSVG(image)) }.count ++
@@ -347,6 +386,9 @@ object NVG {
         return image
     }
 
+    /**
+     * Deletes an image created through [createImage].
+     */
     fun deleteImage(image: Image) {
         val nvgImage = images[image] ?: return
         nvgImage.count --
@@ -364,9 +406,23 @@ object NVG {
         val w = IntArray(1)
         val h = IntArray(1)
         val channels = IntArray(1)
-        val buffer = stbi_load_from_memory(image.buffer(), w, h, channels, 4)
-            ?: throw NullPointerException("Failed to load image: ${image.location}")
-        return nvgCreateImageRGBA(vg, w[0], h[0], 0, buffer)
+        val source = memAlloc(image.bytes.size)
+
+        try {
+            source.put(image.bytes).flip()
+            val decoded = stbi_load_from_memory(source, w, h, channels, 4)
+                ?: throw NullPointerException("Failed to load image: ${image.location}")
+
+            try {
+                return nvgCreateImageRGBA(vg, w[0], h[0], 0, decoded)
+            }
+            finally {
+                stbi_image_free(decoded)
+            }
+        }
+        finally {
+            memFree(source)
+        }
     }
 
     private fun loadSVG(image: Image): Int {
@@ -375,6 +431,7 @@ object NVG {
 
         val width = svg.width().toInt()
         val height = svg.height().toInt()
+        require(width > 0 && height > 0) { "SVG (${image.location}) has invalid dimensions: ${width}x${height}" }
         val buffer = memAlloc(width * height * 4)
 
         try {
@@ -390,29 +447,37 @@ object NVG {
         }
     }
 
-    private fun color(color: Color) {
+    fun color(color: Color) {
         nvgRGBA(color.red.toByte(), color.green.toByte(), color.blue.toByte(), color.alpha.toByte(), nvgColor)
     }
 
-    private fun color(color1: Color, color2: Color) {
+    fun color(color1: Color, color2: Color) {
         nvgRGBA(color1.red.toByte(), color1.green.toByte(), color1.blue.toByte(), color1.alpha.toByte(), nvgColor)
         nvgRGBA(color2.red.toByte(), color2.green.toByte(), color2.blue.toByte(), color2.alpha.toByte(), nvgColor2)
+    }
+
+    private fun lerp(a: Color, b: Color, t: Float): Color {
+        val clamped = t.coerceIn(0f, 1f)
+        fun channel(start: Int, end: Int): Int = (start + ((end - start) * clamped)).toInt().coerceIn(0, 255)
+        return Color(
+            channel(a.red, b.red),
+            channel(a.green, b.green),
+            channel(a.blue, b.blue),
+            channel(a.alpha, b.alpha)
+        )
     }
 
     private fun gradient(color1: Color, color2: Color, x: Number, y: Number, w: Number, h: Number, direction: Gradient) {
         color(color1, color2)
         when (direction) {
-            Gradient.LeftToRight -> nvgLinearGradient(vg, x.toFloat(), y.toFloat(), x.toFloat() + w.toFloat(), y.toFloat(), nvgColor, nvgColor2, nvgPaint)
-            Gradient.TopToBottom -> nvgLinearGradient(vg, x.toFloat(), y.toFloat(), x.toFloat(), y.toFloat() + h.toFloat(), nvgColor, nvgColor2, nvgPaint)
+            Gradient.LEFT_RIGHT -> nvgLinearGradient(vg, x.toFloat(), y.toFloat(), x.toFloat() + w.toFloat(), y.toFloat(), nvgColor, nvgColor2, nvgPaint)
+            Gradient.TOP_BOTTOM -> nvgLinearGradient(vg, x.toFloat(), y.toFloat(), x.toFloat(), y.toFloat() + h.toFloat(), nvgColor, nvgColor2, nvgPaint)
         }
     }
 
-    private fun getFontID(font: Font): Int {
-        return fontMap.getOrPut(font) {
-            val buffer = font.buffer()
-            NVGFont(nvgCreateFontMem(vg, font.name, buffer, false), buffer)
-        }.id
-    }
+    private fun getFontID(font: Font) = fontMap.getOrPut(font) {
+        NVGFont(nvgCreateFontMem(vg, font.location, font.buffer, false), font.buffer)
+    }.id
 
     private class Scissor(val previous: Scissor?, val x: Number, val y: Number, val maxX: Number, val maxY: Number) {
         fun applyScissor() {
