@@ -48,10 +48,18 @@ class NVGPIP(buffer: MultiBufferSource.BufferSource): PictureInPictureRenderer<N
         state.callback.run()
         NVG.pop()
         NVG.endFrame()
+
+        GlStateManager._disableDepthTest()
+        GlStateManager._disableCull()
+        GlStateManager._enableBlend()
+        GlStateManager._blendFuncSeparate(770, 771, 1, 0)
+
         lastRenderAtNanos = System.nanoTime()
     }
 
     data class NVGRenderState(
+        private val width: Int,
+        private val height: Int,
         val poseMatrix: Matrix3x2f,
         private val scissor: ScreenRectangle?,
         private val bounds: ScreenRectangle?,
@@ -59,8 +67,8 @@ class NVGPIP(buffer: MultiBufferSource.BufferSource): PictureInPictureRenderer<N
     ): PictureInPictureRenderState {
         override fun x0() = 0
         override fun y0() = 0
-        override fun x1() = Minecraft.getInstance().window.guiScaledWidth
-        override fun y1() = Minecraft.getInstance().window.guiScaledHeight
+        override fun x1() = width
+        override fun y1() = height
         override fun scissorArea() = scissor
         override fun bounds() = bounds
         override fun scale() = 1f
@@ -80,13 +88,13 @@ class NVGPIP(buffer: MultiBufferSource.BufferSource): PictureInPictureRenderer<N
 
             val scissor = scissorStack.peek()
             val pose = Matrix3x2f(pose())
-            val screenRect = ScreenRectangle(0, 0, window.guiScaledWidth, window.guiScaledHeight).transformMaxBounds(pose)
+            val screenRect = ScreenRectangle(0, 0, guiWidth(), guiHeight()).transformMaxBounds(pose)
             if (screenRect.width <= 0 || screenRect.height <= 0) return
 
             val bounds = scissor?.intersection(screenRect) ?: screenRect
             if (bounds.width <= 0 || bounds.height <= 0) return
 
-            val state = NVGRenderState(pose, scissor, bounds, callback)
+            val state = NVGRenderState(guiWidth(), guiHeight(), pose, scissor, bounds, callback)
             guiRenderState.submitPicturesInPictureState(state)
         }
     }
