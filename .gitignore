@@ -119,3 +119,6 @@ runs/
 !gradle-wrapper.jar
 /.kotlin
 /net
+
+# Claude Code local configuration
+.claude/

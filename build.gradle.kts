@@ -2,12 +2,12 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "2.3.10"
-    id("fabric-loom") version "1.15-SNAPSHOT"
+    kotlin("jvm") version "2.3.21"
+    id("net.fabricmc.fabric-loom") version "1.15-SNAPSHOT"
     id("maven-publish")
 }
 
-val targetJavaVersion = 21
+val targetJavaVersion = 25
 group = project.property("maven_group") !!
 version = project.property("mod_version") !!
 
@@ -16,7 +16,7 @@ base {
 }
 
 repositories {
-    maven("https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1")
+    mavenCentral()
 }
 
 java {
@@ -26,20 +26,18 @@ java {
 
 dependencies {
     minecraft("com.mojang:minecraft:${project.property("minecraft_version") !!}")
-    mappings(loom.officialMojangMappings())
-    modImplementation("net.fabricmc:fabric-loader:${project.property("loader_version") !!}")
-    modImplementation("net.fabricmc:fabric-language-kotlin:${project.property("kotlin_loader_version") !!}")
+    implementation("net.fabricmc:fabric-loader:${project.property("loader_version") !!}")
+    implementation("net.fabricmc:fabric-language-kotlin:${project.property("kotlin_loader_version") !!}")
 
-    modImplementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version") !!}")
-    modRuntimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")
+    implementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version") !!}")
 
-    val lwjglVersion = "3.3.3"
+    val lwjglVersion = "3.4.1"
 
-    modImplementation("org.lwjgl:lwjgl-nanovg:$lwjglVersion")
+    implementation("org.lwjgl:lwjgl-nanovg:$lwjglVersion")
     include("org.lwjgl:lwjgl-nanovg:$lwjglVersion")
 
     listOf("windows", "linux", "macos", "macos-arm64").forEach { os ->
-        modImplementation("org.lwjgl:lwjgl-nanovg:$lwjglVersion:natives-$os")
+        implementation("org.lwjgl:lwjgl-nanovg:$lwjglVersion:natives-$os")
         include("org.lwjgl:lwjgl-nanovg:$lwjglVersion:natives-$os")
     }
 

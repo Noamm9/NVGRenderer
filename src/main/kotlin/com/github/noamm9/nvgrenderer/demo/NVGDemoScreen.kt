@@ -8,7 +8,7 @@ import com.github.noamm9.nvgrenderer.nvg.NVG
 import com.github.noamm9.nvgrenderer.nvg.NVGPIP.Companion.drawNVG
 import com.github.noamm9.nvgrenderer.nvg.enums.Gradient
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.awt.Color
@@ -18,6 +18,10 @@ class NVGDemoScreen: Screen(Component.translatable("screen.nvgrenderer.demo")) {
     private val mouseStack = MouseStack(autoUpdateFromMinecraft = false)
     private var iconImage: Image? = null
     private var svgImage: Image? = null
+
+    // Elapsed time kept small so the Float division below stays precise; System.nanoTime()
+    // itself is too large for a 32-bit float and would quantize the animation clock.
+    private val startNanos = System.nanoTime()
 
     override fun init() {
         super.init()
@@ -41,10 +45,10 @@ class NVGDemoScreen: Screen(Component.translatable("screen.nvgrenderer.demo")) {
 
     override fun isPauseScreen(): Boolean = false
 
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick)
+    override fun extractRenderState(guiGraphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
+        super.extractRenderState(guiGraphics, mouseX, mouseY, partialTick)
 
-        val time = System.nanoTime() / 1_000_000_000f
+        val time = (System.nanoTime() - startNanos) / 1_000_000_000f
         val screenWidth = width.toFloat()
         val screenHeight = height.toFloat()
         val panelX = 26f
