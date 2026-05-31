@@ -335,7 +335,7 @@ object NVG {
         return nvglCreateImageFromHandle(vg, textureId, textureWidth.toInt(), textureHeight.toInt(), NVG_IMAGE_NEAREST or NVG_IMAGE_NODELETE)
     }
 
-    fun image(image: Int, textureWidth: Number, textureHeight: Number, subX: Number, subY: Number, subW: Number, subH: Number, x: Number, y: Number, w: Number, h: Number, radius: Number) {
+    fun image(image: Int, textureWidth: Number, textureHeight: Number, subX: Number, subY: Number, subW: Number, subH: Number, x: Number, y: Number, w: Number, h: Number, radius: Number, tint: Color? = null) {
         if (image == - 1) return
 
         val sx = subX.toFloat() / textureWidth.toFloat()
@@ -349,10 +349,26 @@ object NVG {
         val iy = y.toFloat() - ih * sy
 
         nvgImagePattern(vg, ix, iy, iw, ih, 0f, image, 1f, nvgPaint)
+        if (tint != null) {
+            color(tint)
+            nvgPaint.innerColor(nvgColor)
+        }
         nvgBeginPath(vg)
         nvgRoundedRect(vg, x.toFloat(), y.toFloat(), w.toFloat(), h.toFloat() + .5f, radius.toFloat())
         nvgFillPaint(vg, nvgPaint)
         nvgFill(vg)
+    }
+
+    /**
+     * Draws the sub-region ([subX], [subY], [subW], [subH]) of the image at
+     * [path] — whose full texture is [textureWidth]×[textureHeight] px — into
+     * the rect ([x], [y], [w], [h]). Resolves (and caches) the image like the
+     * full-image [image] overload. If [tint] is non-null the sampled texels are
+     * multiplied by it.
+     */
+    fun image(path: String, textureWidth: Number, textureHeight: Number, subX: Number, subY: Number, subW: Number, subH: Number, x: Number, y: Number, w: Number, h: Number, radius: Number, tint: Color? = null) {
+        val existing = images.keys.find { it.location == path } ?: createImage(path)
+        image(getImage(existing), textureWidth, textureHeight, subX, subY, subW, subH, x, y, w, h, radius, tint)
     }
 
     fun image(image: Image, x: Number, y: Number, w: Number, h: Number, radius: Number) {
