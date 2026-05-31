@@ -495,16 +495,14 @@ object NVG {
         NVGFont(nvgCreateFontMem(vg, font.location, font.buffer, false), font.buffer)
     }.id
 
-    private class Scissor(val previous: Scissor?, val x: Number, val y: Number, val maxX: Number, val maxY: Number) {
+    private class Scissor(val previous: Scissor?, x: Float, y: Float, maxX: Float, maxY: Float) {
+        val ex: Float = if (previous == null) x else max(x, previous.ex)
+        val ey: Float = if (previous == null) y else max(y, previous.ey)
+        val emaxX: Float = if (previous == null) maxX else min(maxX, previous.emaxX)
+        val emaxY: Float = if (previous == null) maxY else min(maxY, previous.emaxY)
+
         fun applyScissor() {
-            if (previous == null) nvgScissor(vg, x.toFloat(), y.toFloat(), maxX.toFloat() - x.toFloat(), maxY.toFloat() - y.toFloat())
-            else {
-                val x = max(x.toFloat(), previous.x.toFloat())
-                val y = max(y.toFloat(), previous.y.toFloat())
-                val width = max(0f, (min(maxX.toFloat(), previous.maxX.toFloat()) - x))
-                val height = max(0f, (min(maxY.toFloat(), previous.maxY.toFloat()) - y))
-                nvgScissor(vg, x, y, width, height)
-            }
+            nvgScissor(vg, ex, ey, max(0f, emaxX - ex), max(0f, emaxY - ey))
         }
     }
 
